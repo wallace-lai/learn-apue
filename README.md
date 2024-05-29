@@ -1,2 +1,3 @@
 # learn-apue
-some codes for apue learning
+
+code written during the learning process of APUE
