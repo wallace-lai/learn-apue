@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     static char buffer[STAMPSIZE];
     memset(buffer, 0, STAMPSIZE);
 
-    // use recv
+    // 1. use recv
     // ssize_t len = recv(sock, buffer, STAMPSIZE, 0);
     // if (len < 0) {
     //     perror("recv()");
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     // }
     // printf("%s\r\n", buffer);
 
-    // use io
+    // 2. use io
     FILE *fp = fdopen(sock, "r");
     if (fp == NULL) {
         perror("fdopen()");
