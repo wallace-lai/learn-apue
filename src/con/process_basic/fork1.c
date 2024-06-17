@@ -9,6 +9,7 @@ int main()
     pid_t pid;
 
     printf("pid [%d] : begin ...\n", getpid());
+    fflush(NULL);
 
     pid = fork();
     if (pid < 0) {
@@ -25,5 +26,6 @@ int main()
     }
 
     printf("pid [%d] : end ...\n", getpid());
+
     exit(0);
 }
