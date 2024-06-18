@@ -3,14 +3,13 @@
 #include <stdlib.h>
 
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #define BEG 30000000
 #define END 30000200
 
 int main()
 {
-    int mark;
-
     for (int i = BEG; i <= END; i++) {
         pid_t pid = fork();
         if (pid < 0) {
@@ -19,7 +18,7 @@ int main()
         }
 
         if (pid == 0) {
-            mark = 1;
+            int mark = 1;
             for (int p = 2; p < i / 2; p++) {
                 if (i % p == 0) {
                     mark = 0;
@@ -33,6 +32,10 @@ int main()
 
             exit(0);
         }
+    }
+
+    for (int i = BEG; i <= END; i++) {
+        wait(NULL);
     }
 
     return 0;
