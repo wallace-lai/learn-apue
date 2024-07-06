@@ -13,4 +13,8 @@ int mytbf_return_token(mytbf_t *tbf, int num);
 
 int mytbf_deinit(mytbf_t *tbf);
 
+void mytbf_module_load();
+
+void mytbf_module_unload();
+
 #endif /* MY_TBF_H_ */

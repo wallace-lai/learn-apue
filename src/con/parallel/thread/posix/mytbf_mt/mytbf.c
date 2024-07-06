@@ -23,8 +23,7 @@ static pthread_t worker;
 static struct mytbf_s *job[MAX_MYTBF_SIZE];
 static pthread_mutex_t job_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-static int is_loaded;
-static pthread_mutex_t is_loaded_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
 static int get_free_pos_unlocked()
 {
@@ -42,15 +41,10 @@ static int min(int a, int b)
     return (a < b) ? a : b;
 }
 
-static void mytbf_module_load();
-static void mytbf_module_unload();
-
 mytbf_t *mytbf_init(unsigned cps, unsigned burst)
 {
     int pos = -1;
     struct mytbf_s *tbf = NULL;
-
-    mytbf_module_load();
 
     tbf = malloc(sizeof(struct mytbf_s));
     if (tbf == NULL) {
@@ -87,19 +81,17 @@ int mytbf_fetch_token(mytbf_t *tbf, int num)
     }
 
     t = (struct mytbf_s *)tbf;
-    while (1) {
-        pthread_mutex_lock(&t->mtx);
-        if (t->token <= 0) {
-            pthread_mutex_unlock(&t->mtx);
-            sched_yield();
-            continue;
-        }
+    pthread_mutex_lock(&t->mtx);
 
-        n = min(t->token, num);
-        t->token -= n;
+    while (t->token <= 0) {
         pthread_mutex_unlock(&t->mtx);
-        break;
+        sched_yield();
+        pthread_mutex_lock(&t->mtx);
     }
+    n = min(t->token, num);
+    t->token -= n;
+
+    pthread_mutex_unlock(&t->mtx);
 
     return n;
 }
@@ -138,7 +130,7 @@ int mytbf_deinit(mytbf_t *tbf)
     return 0;
 }
 
-static void *routine(void *ctx)
+static void *worker_routine(void *ctx)
 {
     int ret = 0;
     struct timespec req;
@@ -181,34 +173,22 @@ static void *routine(void *ctx)
     pthread_exit(NULL);
 }
 
-static void mytbf_module_load()
+static void module_load_impl(void)
 {
-    pthread_mutex_lock(&is_loaded_mtx);
-    if (is_loaded) {
-        pthread_mutex_unlock(&is_loaded_mtx);
-        return;
-    }
-
-    int err = pthread_create(&worker, NULL, routine, NULL);
+    int err = pthread_create(&worker, NULL, worker_routine, NULL);
     if (err) {
         fprintf(stderr, "pthread_create() : %s\n", strerror(err));
-        pthread_mutex_destroy(&is_loaded_mtx);
-        exit(1);
+        pthread_exit(NULL);
     }
-
-    is_loaded = 1;
-    pthread_mutex_unlock(&is_loaded_mtx);
 }
 
-static void mytbf_module_unload()
+void mytbf_module_load()
+{
+    (void)pthread_once(&once_control, module_load_impl);
+}
+
+void mytbf_module_unload()
 {
     pthread_cancel(worker);
     pthread_join(worker, NULL);
-
-    for (int i = 0; i < MAX_MYTBF_SIZE; i++) {
-        if (job[i] != NULL) {
-            pthread_mutex_destroy(&job[i]->mtx);
-            job[i] = NULL;
-        }
-    }
 }

@@ -28,6 +28,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    mytbf_module_load();
     mytbf_t *tbf = mytbf_init(CPS, BURST);
     if (tbf == NULL) {
         fprintf(stderr, "mytbf_init() failed.");
@@ -82,6 +83,7 @@ int main(int argc, char **argv)
     }
 
     mytbf_deinit(tbf);
+    mytbf_module_unload();
 
     close(sfd);
     exit(0);
