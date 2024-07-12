@@ -1,3 +1,3 @@
 # learn-apue
 
-code written during the learning process of APUE
+code for practicing linux system programming
