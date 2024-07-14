@@ -8,11 +8,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-// #define TTY1 "/dev/tty11"
-// #define TTY2 "/dev/tty12"
-
-#define TTY1 "/tmp/out1"
-#define TTY2 "/tmp/out2"
+#define TTY1 "/dev/tty11"
+#define TTY2 "/dev/tty12"
 
 #define BUFSIZE (1024)
 
