@@ -54,7 +54,11 @@ void *relayer_routine(void *arg)
         pthread_mutex_lock(&relayers_mutex);
         for (int i = 0; i < RELAYER_JOBMAX; i++) {
             job = g_relayers[i];
-            if (job != NULL && job->job_state == STATE_RUNNING) {
+            if (job == NULL || job->job_state == STATE_CANCELED) {
+                continue;
+            }
+
+            if (job->job_state == STATE_RUNNING) {
                 fsm_driver(&job->m12);
                 fsm_driver(&job->m21);
                 if (job->m12.state == FSM_STATE_T && job->m21.state == FSM_STATE_T) {
@@ -118,7 +122,31 @@ int relayer_add_job(int fd1, int fd2)
  */
 int relayer_cancel_job(int id)
 {
-    ;
+    if (id < 0 || id >= RELAYER_JOBMAX) {
+        return -EINVAL;
+    }
+
+    relayer_job_t *job = g_relayers[id];
+
+    pthread_mutex_lock(&relayers_mutex);
+    while (job->job_state != STATE_OVER) {
+        pthread_mutex_unlock(&relayers_mutex);
+        sched_yield();
+        pthread_mutex_lock(&relayers_mutex);
+    }
+
+    job->job_state = STATE_CANCELED;
+    pthread_mutex_unlock(&relayers_mutex);
+    return 0;
+}
+
+static void copy_job_stat(relayer_job_t *job, relayer_stat_t *stat)
+{
+    stat->fd1 = job->fd1;
+    stat->fd2 = job->fd2;
+    stat->state = job->job_state;
+    stat->count12 = job->m12.count;
+    stat->count21 = job->m21.count;
 }
 
 /**
@@ -128,7 +156,30 @@ int relayer_cancel_job(int id)
  */
 int relayer_wait_job(int id, relayer_stat_t *stat)
 {
-    ;
+    if (id < 0 || id >= RELAYER_JOBMAX) {
+        return -EINVAL;
+    }
+
+    relayer_job_t *job = g_relayers[id];
+
+    pthread_mutex_lock(&relayers_mutex);
+    if (job->job_state == STATE_CANCELED ||
+        job->job_state == STATE_OVER) {
+        copy_job_stat(job, stat);
+        pthread_mutex_unlock(&relayers_mutex);
+        return 0;
+    }
+
+    // job is running
+    while (job->job_state != STATE_OVER) {
+        pthread_mutex_unlock(&relayers_mutex);
+        sched_yield();
+        pthread_mutex_lock(&relayers_mutex);
+    }
+
+    copy_job_stat(job, stat);
+    pthread_mutex_unlock(&relayers_mutex);
+    return 0;
 }
 
 /**
@@ -138,5 +189,13 @@ int relayer_wait_job(int id, relayer_stat_t *stat)
  */
 int relayer_get_state(int id, relayer_stat_t *stat)
 {
-    ;
+    if (id < 0 || id >= RELAYER_JOBMAX) {
+        return -EINVAL;
+    }
+
+    relayer_job_t *job = g_relayers[id];
+    pthread_mutex_lock(&relayers_mutex);
+    copy_job_stat(job, stat);
+    pthread_mutex_unlock(&relayers_mutex);
+    return 0;
 }
